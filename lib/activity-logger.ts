@@ -27,12 +27,13 @@ export type ActivityAction =
   | "snippet.duplicated"
   | "snippet.owner_transfer"
   | "snippet.owner_transfer_failed"
-  | "snippet.duplicated"
-  | "snippet.forked"
   | "wallet.connected"
   | "wallet.disconnected"
   | "signature.verified"
   | "signature.failed"
+  | "snippet.proof_generated"
+  | "snippet.proof_verified"
+  | "snippet.proof_verification_failed"
   | "stellar.tx.submitted"
   | "stellar.tx.confirmed"
   | "stellar.tx.applied"
@@ -58,7 +59,7 @@ export class ActivityLogger {
     try {
       const id = crypto.randomUUID();
       const createdAt = new Date();
-      const db = getSql();
+      const db = sql;
 
       if (!db) {
         console.log(`[ActivityLog] ${action} logged for snippet ${snippetId} (no DB)`, {

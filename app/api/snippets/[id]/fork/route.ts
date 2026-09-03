@@ -5,6 +5,7 @@ import { SnippetRepository } from "../../snippet.repository";
 import { OwnershipMiddleware } from "../../ownership.middleware";
 import { appendActivityLog, extractIp, extractUserAgent } from "@/lib/activity-logger";
 import { createTransaction } from "@/lib/db";
+import { SnippetOwnershipProof } from "@/lib/snippet-ownership-proof";
 
 const repository = new SnippetRepository();
 const service = new SnippetService(repository);
@@ -36,6 +37,16 @@ export async function POST(
       );
     }
 
+    if (body.ownershipProof) {
+      const proof = body.ownershipProof as SnippetOwnershipProof;
+      if (!proof.snippetId || !proof.hash || !proof.ownerWallet || !proof.signature || !proof.createdAt) {
+        return NextResponse.json(
+          { error: "Ownership proof required for forking" },
+          { status: 400 },
+        );
+      }
+    }
+
     const fork = await service.forkSnippet(id, walletAddress, body);
 
     await appendActivityLog("snippet.forked", "snippet", {
@@ -50,7 +61,6 @@ export async function POST(
       userAgent: extractUserAgent(req.headers),
     });
 
-    // Record on-chain / database transaction
     try {
       await createTransaction(
         walletAddress,
@@ -84,6 +94,9 @@ export async function POST(
     }
     if (error instanceof Error && error.message === "Snippet not found") {
       return NextResponse.json({ error: "Original snippet not found" }, { status: 404 });
+    }
+    if (error instanceof Error && error.message.includes("proof")) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
     }
     console.error("[API] Error forking snippet:", error);
     return NextResponse.json(

@@ -21,6 +21,8 @@ import { SnippetFormValues } from "@/types/type";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { snippetSchema } from "@/validiation/snippet-form-validiation";
 import { toast } from "sonner";
+import { useWallet } from "@/wallet/context/WalletContext";
+import { signMessage } from "@/wallet/lib/walletAdapters";
 
 interface SnippetFormProps {
   editingId: string | null;
@@ -47,6 +49,7 @@ export default function SnippetForm({
   isLoading = false,
 }: SnippetFormProps) {
   const [submitting, setSubmitting] = useState(false);
+  const wallet = useWallet();
   const [autosaveStatus, setAutosaveStatus] = useState<AutosaveStatus>("idle");
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
 
@@ -229,7 +232,6 @@ export default function SnippetForm({
     return () => {
       if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [watchedValues, editingId]);
 
   // Cleanup timers on unmount
@@ -260,11 +262,45 @@ export default function SnippetForm({
         headers["If-Unmodified-Since"] = serverUpdatedAtRef.current;
       }
 
+      if (!editingId && (!wallet?.connected || !wallet.publicKey || !wallet.walletProvider)) {
+        throw new Error("Connect a Stellar wallet before creating a snippet.");
+      }
+
+      if (!editingId && wallet?.publicKey && wallet.walletProvider) {
+        const snippetId = crypto.randomUUID();
+        const createdAt = new Date().toISOString();
+        const hashBuffer = await crypto.subtle.digest(
+          "SHA-256",
+          new TextEncoder().encode(payload.code),
+        );
+        const hash = Array.from(new Uint8Array(hashBuffer))
+          .map((byte) => byte.toString(16).padStart(2, "0"))
+          .join("");
+        const proofPayload = {
+          createdAt,
+          hash,
+          ownerWallet: wallet.publicKey.toUpperCase(),
+          snippetId,
+        };
+        const signature = await signMessage(
+          wallet.walletProvider,
+          JSON.stringify(proofPayload),
+        );
+        Object.assign(payload, {
+          ownershipProof: { ...proofPayload, signature },
+        });
+      }
+
       const res = await fetch(
         editingId ? `/api/snippets/${editingId}` : "/api/snippets",
         {
           method: editingId ? "PUT" : "POST",
-          headers,
+          headers: {
+            "Content-Type": "application/json",
+            ...headers,
+            ...(wallet?.publicKey ? { "x-wallet-address": wallet.publicKey } : {}),
+            ...(wallet?.token ? { Authorization: `Bearer ${wallet.token}` } : {}),
+          },
           body: JSON.stringify(payload),
         },
       );

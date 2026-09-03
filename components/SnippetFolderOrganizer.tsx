@@ -23,6 +23,7 @@ import {
   reorderFolder,
 } from "@/lib/snippet-folders";
 import { recordRecentSnippet } from "@/lib/recent-snippets-storage";
+import { SnippetOwnershipBadge } from "@/components/SnippetOwnershipBadge";
 import { SnippetSummary } from "@/types/type";
 import { SnippetCardContextMenu } from "./SnippetCardContextMenu";
 import { SnippetDetailModal } from "./SnippetDetailModal";
@@ -219,14 +220,15 @@ export function SnippetFolderOrganizer({
         >
           <GripVertical className="h-4 w-4 cursor-grab text-slate-600 group-hover:text-fuchsia-300 shrink-0" />
           <FileCode2 className="h-4 w-4 text-blue-300 shrink-0" />
-          
+
           <div className="min-w-0 flex-1 pr-16">
             <div className="flex items-center gap-2">
               <h3 className="truncate text-sm font-medium text-slate-100 group-hover:text-fuchsia-200">
                 {snippet.title}
               </h3>
+              <SnippetOwnershipBadge snippetId={snippet.id} />
             </div>
-            
+
             <div className="flex items-center gap-2 mt-0.5">
               <span className="text-xs text-slate-500 font-mono">
                 {snippet.language}
@@ -242,7 +244,6 @@ export function SnippetFolderOrganizer({
             </div>
           </div>
 
-          {/* Quick Action Buttons on card */}
           <div
             className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
             onClick={(e) => e.stopPropagation()}
